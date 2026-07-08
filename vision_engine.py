@@ -1,15 +1,4 @@
-"""Moteur Vision OCR — Prétraitement chirurgical + PaddleOCR.
-
-Pipeline :
-  1. Conversion bytes → image
-  2. Niveaux de gris + upscale
-  3. Débruitage (NLMeans)
-  4. Correction d'inclinaison (deskew)
-  5. Binarisation (Sauvola / Otsu / Adaptive / Niblack)
-  6. Amélioration contraste (CLAHE)
-  7. PaddleOCR
-  8. Post-correction
-"""
+"""Moteur Vision OCR — Prétraitement chirurgical + PaddleOCR v3."""
 import cv2
 import numpy as np
 import logging
@@ -34,9 +23,8 @@ class VisionEngine:
 
     def _get_ocr_model(self):
         if self._ocr is None:
-            logger.info("Chargement PaddleOCR (Arabe)...")
+            logger.info("Chargement PaddleOCR v3 (Arabe)...")
             from paddleocr import PaddleOCR
-
             self._ocr = PaddleOCR(lang="ar")
             logger.info("✅ PaddleOCR chargé")
         return self._ocr
@@ -56,12 +44,13 @@ class VisionEngine:
         # 1. Gris
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img.copy()
 
-        # 2. Upscale si petite
+        # 2. Upscale si l'image est trop petite (PaddleOCR a besoin de > 1000px)
         h, w = gray.shape
         if max(h, w) < 1000:
-            gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+            scale = 1000 / max(h, w)
+            gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
-        # 3. Débruitage NLMeans (préserve les contours)
+        # 3. Débruitage NLMeans
         gray = cv2.fastNlMeansDenoising(gray, h=10)
 
         # 4. Deskew
@@ -74,7 +63,10 @@ class VisionEngine:
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         binary = clahe.apply(binary)
 
-        return binary
+        # 7. Reconversion en 3 canaux BGR (Requis par PaddleOCR v3)
+        final_img = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+        
+        return final_img
 
     def _deskew(self, img: np.ndarray) -> np.ndarray:
         thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
@@ -115,7 +107,6 @@ class VisionEngine:
         return binary
 
     def _sauvola(self, img: np.ndarray, window: int = 25, k: float = 0.2, r: float = 128) -> np.ndarray:
-        """Binarisation de Sauvola — optimale pour manuscrits."""
         f = img.astype(np.float32)
         mean = cv2.boxFilter(f, cv2.CV_32F, (window, window), normalize=True)
         mean_sq = cv2.boxFilter(f * f, cv2.CV_32F, (window, window), normalize=True)
@@ -150,33 +141,52 @@ class VisionEngine:
         logger.info("Début extraction OCR...")
 
         img = self._bytes_to_image(image_bytes)
-        logger.info(f"Image: {img.shape[1]}x{img.shape[0]}")
+        logger.info(f"Image reçue: {img.shape[1]}x{img.shape[0]}")
 
         img_to_feed = self.pretraiter_manuscrit(img) if use_preprocessing else img
 
         ocr_model = self._get_ocr_model()
-        resultats = ocr_model.ocr(img_to_feed)
+        
+        try:
+            resultats = ocr_model.ocr(img_to_feed)
+        except Exception as e:
+            logger.error(f"Erreur interne PaddleOCR v3: {e}")
+            return ""
 
         lignes = []
         scores = []
 
-        if resultats and len(resultats) > 0 and resultats[0]:
-            for ligne in resultats[0]:
-                try:
-                    if isinstance(ligne, dict):
-                        text = ligne.get("rec_text", ligne.get("text", ""))
-                        score = ligne.get("score", ligne.get("rec_score", 1.0))
-                    elif isinstance(ligne, (list, tuple)) and len(ligne) >= 2:
-                        text = ligne[1][0] if isinstance(ligne[1], (list, tuple)) else str(ligne[1])
-                        score = ligne[1][1] if isinstance(ligne[1], (list, tuple)) else 1.0
-                    else:
-                        continue
-
-                    if score > 0.5 and text.strip():
-                        lignes.append(text.strip())
-                        scores.append(float(score))
-                except Exception as e:
-                    logger.warning(f"Erreur ligne OCR: {e}")
+        # Parsing compatible PaddleOCR v3 et v2
+        if resultats and len(resultats) > 0:
+            res = resultats[0]
+            
+            # Format PaddleOCR v3 (Dictionnaire avec listes)
+            if isinstance(res, dict) and 'rec_texts' in res:
+                texts = res.get('rec_texts', [])
+                scs = res.get('rec_scores', [])
+                for i in range(len(texts)):
+                    if i < len(scs) and scs[i] > 0.5 and texts[i].strip():
+                        lignes.append(texts[i].strip())
+                        scores.append(float(scs[i]))
+            
+            # Format PaddleOCR v2 (Liste de tuples/listes)
+            elif isinstance(res, list):
+                for ligne in res:
+                    try:
+                        if isinstance(ligne, dict):
+                            text = ligne.get("rec_text", ligne.get("text", ""))
+                            score = ligne.get("score", ligne.get("rec_score", 1.0))
+                        elif isinstance(ligne, (list, tuple)) and len(ligne) >= 2:
+                            text = ligne[1][0] if isinstance(ligne[1], (list, tuple)) else str(ligne[1])
+                            score = ligne[1][1] if isinstance(ligne[1], (list, tuple)) else 1.0
+                        else:
+                            continue
+                        
+                        if score > 0.5 and text.strip():
+                            lignes.append(text.strip())
+                            scores.append(float(score))
+                    except Exception as e:
+                        logger.warning(f"Erreur ligne OCR v2: {e}")
 
         texte = self._post_correct("\n".join(lignes))
 
