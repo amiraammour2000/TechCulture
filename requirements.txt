@@ -1,0 +1,14 @@
+streamlit>=1.33.0
+fastapi>=0.110.0
+uvicorn>=0.29.0
+pydantic>=2.6.0
+pyarabic>=0.6.15
+lxml>=5.2.1
+pandas>=2.2.1
+plotly>=5.21.0
+opencv-python-headless==4.10.0.84
+paddlepaddle==3.0.0
+paddleocr>=2.7.0
+numpy>=1.24.0
+python-multipart>=0.0.9
+pytest>=8.0.0
