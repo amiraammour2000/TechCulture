@@ -119,7 +119,7 @@ def afficher_resultats(resultat):
     entites = resultat["entites"]
     texte = resultat["texte_nettoye"]
     h = resultat["hash"]
-    xml = resultat["xml"]
+    xml_str = resultat["xml"]
     meta = resultat["metadata"]
 
     st.success(f"✅ Analyse terminée en {meta['temps_traitement']}s | {meta['nombre_entites']} entités")
@@ -183,11 +183,11 @@ def afficher_resultats(resultat):
                 st.plotly_chart(px.histogram(x=confs, nbins=10, title="Confiances", labels={"x": "%"}), use_container_width=True)
 
     with tab4:
-        st.code(xml.dom.minidom.parseString(xml).toprettyxml(indent="  "), language="xml")
+        st.code(xml.dom.minidom.parseString(xml_str).toprettyxml(indent="  "), language="xml")
 
     with tab5:
         c1, c2, c3, c4 = st.columns(4)
-        c1.download_button("🌳 XML", xml, file_name=f"manuscrit_{h[:8]}.xml", mime="application/xml")
+        c1.download_button("🌳 XML", xml_str, file_name=f"manuscrit_{h[:8]}.xml", mime="application/xml")
         c2.download_button("📋 JSON", json.dumps({"hash": h, "texte": texte, "entites": entites, "metadata": meta}, ensure_ascii=False, indent=2), file_name=f"manuscrit_{h[:8]}.json", mime="application/json")
         c3.download_button("📄 TXT", "\n".join(f"[{e['type']}] {e['entite']} ({e['confiance']}%)" for e in entites), file_name=f"entites_{h[:8]}.txt")
         import csv, io
@@ -236,7 +236,7 @@ with tabs[1]:
         pre = st.checkbox("Prétraitement chirurgical", value=True)
     with c2:
         if fup:
-            st.image(fup, use_column_width=True, caption="Aperçu")
+            st.image(fup, width="stretch", caption="Aperçu")
             st.info(f"📁 {fup.name} | {len(fup.getvalue())/1024:.1f} KB")
 
     if st.button("🔬 Lancer OCR + NER", type="primary", use_container_width=True, disabled=not fup):
