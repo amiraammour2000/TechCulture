@@ -1,1 +1,0 @@
-# Aucune dépendance système requise car nous utilisons opencv-python-headless
