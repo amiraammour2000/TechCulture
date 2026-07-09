@@ -337,7 +337,7 @@ class MoteurExtraction:
             list_p = etree.SubElement(back, TEI + "listPerson")
             for p in sorted(set(p["entite"] for p in persons)):
                 pe = etree.SubElement(list_p, TEI + "person")
-                pe.set("xml:id", f"pers_{abs(hash(p)) % 100000}")
+                pe.set("{http://www.w3.org/XML/1998/namespace}id", f"pers_{abs(hash(p)) % 100000}")
                 etree.SubElement(pe, TEI + "persName").text = p
 
         places = [e for e in entites if e["type"] == "Lieu"]
@@ -345,7 +345,7 @@ class MoteurExtraction:
             list_pl = etree.SubElement(back, TEI + "listPlace")
             for p in sorted(set(p["entite"] for p in places)):
                 pe = etree.SubElement(list_pl, TEI + "place")
-                pe.set("xml:id", f"place_{abs(hash(p)) % 100000}")
+                pe.set("{http://www.w3.org/XML/1998/namespace}id", f"place_{abs(hash(p)) % 100000}")
                 etree.SubElement(pe, TEI + "placeName").text = p
 
         return etree.tostring(
