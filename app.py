@@ -54,7 +54,7 @@ st.markdown("""
 <div class="main-title">
     <h1>📜 TechCulture AI Studio</h1>
     <p>Moteur d'Indexation Sémantique & OCR de Manuscrits Arabes<br>
-    <small>Version Professionnelle 3.0 — Précision Chirurgicale</small></p>
+    <small>-مركز البحث العلمي و التقني لتطوير اللغة العربية -تلمسان</small></p>
 </div>
 """, unsafe_allow_html=True)
 
