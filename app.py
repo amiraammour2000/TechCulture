@@ -66,7 +66,7 @@ with st.sidebar:
     st.markdown("#### 🖼️ Vision")
     binarization = st.selectbox("Binarisation", ["sauvola", "otsu", "adaptive", "niblack"], index=0)
     st.markdown("#### 📊 Informations")
-    st.info(f"**Version:** {VERSION_DICT}\n\n**Entrées:** {DICT_COUNT}\n\n**Moteur:** NER Multi-Passes v3.0")
+    st.info(f"**Version:** {VERSION_DICT}\n\n**Entrées:** {DICT_COUNT}\n\n**Moteur:** NER Multi-Passes v1.0")
     if st.button("🗑️ Réinitialiser"):
         st.session_state.clear()
         st.rerun()
